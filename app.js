@@ -6,13 +6,36 @@ const SUPABASE_KEY = 'sb_publishable_5agpmPQAwxkup_NYH5uOvQ_wFKYamKS';
 const REFRESH_INTERVAL_MS = 30000;
 const CHART_HISTORY_LIMIT = 50;
 
-// Pagination
 const READINGS_PAGE_SIZE = 10;
 let readingsOffset = 0;
 let readingsTotalCount = 0;
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ============================================================
+// NULL-SAFE DOM HELPERS
+// ============================================================
+function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+    else console.warn(`[ORCHID] Missing element: #${id}`);
+}
+function setHTML(id, html) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+    else console.warn(`[ORCHID] Missing element: #${id}`);
+}
+function setClass(id, className) {
+    const el = document.getElementById(id);
+    if (el) el.className = className;
+    else console.warn(`[ORCHID] Missing element: #${id}`);
+}
+function setStyle(id, prop, value) {
+    const el = document.getElementById(id);
+    if (el) el.style[prop] = value;
+    else console.warn(`[ORCHID] Missing element: #${id}`);
+}
 
 // ============================================================
 // SVG ICON LIBRARY
@@ -148,20 +171,25 @@ function formatUptime(cycles) {
 function setStatus(online, ageText) {
     const dot = document.getElementById('statusDot');
     const txt = document.getElementById('statusText');
-    if (online) {
-        dot.classList.remove('offline');
-        txt.textContent = ageText ? `Live • ${ageText}` : 'Online';
-    } else {
-        dot.classList.add('offline');
-        txt.textContent = ageText ? `Offline • ${ageText}` : 'No data';
+    if (dot) {
+        if (online) dot.classList.remove('offline');
+        else dot.classList.add('offline');
+    }
+    if (txt) {
+        if (online) txt.textContent = ageText ? `Live • ${ageText}` : 'Online';
+        else        txt.textContent = ageText ? `Offline • ${ageText}` : 'No data';
     }
 }
 function showError(msg) {
     const box = document.getElementById('errorBox');
+    if (!box) return;
     box.textContent = msg;
     box.style.display = 'block';
 }
-function hideError() { document.getElementById('errorBox').style.display = 'none'; }
+function hideError() {
+    const box = document.getElementById('errorBox');
+    if (box) box.style.display = 'none';
+}
 
 // ============================================================
 // CHART CONFIGURATION
@@ -192,23 +220,28 @@ let chartData = [];
 // INJECT STATIC ICONS
 // ============================================================
 function injectStaticIcons() {
-    document.getElementById('iconTemperature').innerHTML = icon('temperature');
-    document.getElementById('iconHumidity').innerHTML    = icon('humidity');
-    document.getElementById('iconHeatIndex').innerHTML  = icon('heat_index');
-    document.getElementById('iconPressure').innerHTML    = icon('pressure');
+    setHTML('iconTemperature', icon('temperature'));
+    setHTML('iconHumidity',    icon('humidity'));
+    setHTML('iconHeatIndex',   icon('heat_index'));
+    setHTML('iconPressure',    icon('pressure'));
 
-    document.getElementById('tabIconTemp').innerHTML  = icon('temperature', 14);
-    document.getElementById('tabIconHum').innerHTML   = icon('humidity', 14);
-    document.getElementById('tabIconHI').innerHTML    = icon('heat_index', 14);
-    document.getElementById('tabIconPres').innerHTML  = icon('pressure', 14);
-    document.getElementById('tabIconTrend').innerHTML = icon('trend', 14);
+    setHTML('tabIconTemp',  icon('temperature', 14));
+    setHTML('tabIconHum',   icon('humidity', 14));
+    setHTML('tabIconHI',    icon('heat_index', 14));
+    setHTML('tabIconPres',  icon('pressure', 14));
+    setHTML('tabIconTrend', icon('trend', 14));
 }
 
 // ============================================================
 // CHART
 // ============================================================
 function initChart() {
-    const ctx = document.getElementById('trendChart').getContext('2d');
+    const canvas = document.getElementById('trendChart');
+    if (!canvas) {
+        console.warn('[ORCHID] Missing chart canvas');
+        return;
+    }
+    const ctx = canvas.getContext('2d');
     const cfg = METRIC_CONFIG[activeMetric];
     const gradient = ctx.createLinearGradient(0, 0, 0, 340);
     gradient.addColorStop(0, cfg.gradient[0]);
@@ -314,6 +347,7 @@ function updateChart() {
 function updateChartStats(values, cfg) {
     const valid = values.filter(v => v !== null && !isNaN(v));
     const stats = document.getElementById('chartStats');
+    if (!stats) return;
     if (valid.length === 0) { stats.innerHTML = ''; return; }
 
     const min = Math.min(...valid);
@@ -373,22 +407,21 @@ async function fetchLatest() {
     const weatherColor = getWeatherColor(weatherName);
 
     const heroCard = document.getElementById('currentWeatherCard');
-    heroCard.style.color = weatherColor;
+    if (heroCard) heroCard.style.color = weatherColor;
 
-    document.getElementById('weatherIcon').innerHTML = getWeatherIcon(weatherName);
-    document.getElementById('weatherName').textContent = weatherName;
-    document.getElementById('weatherName').style.color = weatherColor;
-    document.getElementById('weatherDesc').textContent =
-        `Node ${data.node_id} • ${data.temperature?.toFixed(1)}°C • ${data.humidity?.toFixed(1)}% RH`;
-    document.getElementById('weatherTime').textContent =
-        `Updated ${formatTimeOnlyPH(data.created_at)} (${timeAgo(data.created_at)})`;
+    setHTML('weatherIcon', getWeatherIcon(weatherName));
+    setText('weatherName', weatherName);
+    setStyle('weatherName', 'color', weatherColor);
+    setText('weatherDesc',
+        `Node ${data.node_id} • ${data.temperature?.toFixed(1)}°C • ${data.humidity?.toFixed(1)}% RH`);
+    setText('weatherTime',
+        `Updated ${formatTimeOnlyPH(data.created_at)} (${timeAgo(data.created_at)})`);
 
     // Forecast
-    const forecastEl = document.getElementById('forecastText');
-    forecastEl.textContent = data.forecast || '—';
-    forecastEl.style.color = getForecastColor(data.forecast);
+    setText('forecastText', data.forecast || '—');
+    setStyle('forecastText', 'color', getForecastColor(data.forecast));
 
-    // Trend pill
+    // Trend
     const trendMap = {
         '-2': { text: 'Falling Fast', cls: 'falling', arrow: 'falling' },
         '-1': { text: 'Falling',      cls: 'falling', arrow: 'falling' },
@@ -397,22 +430,21 @@ async function fetchLatest() {
         '2':  { text: 'Rising Fast',  cls: 'rising',  arrow: 'rising'  }
     };
     const trend = trendMap[String(data.pressure_trend)] || { text: '— Trend —', cls: 'steady', arrow: 'steady' };
-    const trendPill = document.getElementById('trendPill');
-    trendPill.innerHTML = `${icon(trend.arrow, 14)} ${trend.text}`;
-    trendPill.className = `trend-pill ${trend.cls}`;
+    setHTML('trendPill', `${icon(trend.arrow, 14)} ${trend.text}`);
+    setClass('trendPill', `trend-pill ${trend.cls}`);
 
     // Metrics
-    document.getElementById('temperature').textContent = data.temperature?.toFixed(1) ?? '—';
-    document.getElementById('humidity').textContent    = data.humidity?.toFixed(1) ?? '—';
-    document.getElementById('heatIndex').textContent   = data.heat_index?.toFixed(1) ?? '—';
-    document.getElementById('pressure').textContent    = data.pressure?.toFixed(1) ?? '—';
+    setText('temperature', data.temperature?.toFixed(1) ?? '—');
+    setText('humidity',    data.humidity?.toFixed(1) ?? '—');
+    setText('heatIndex',   data.heat_index?.toFixed(1) ?? '—');
+    setText('pressure',    data.pressure?.toFixed(1) ?? '—');
 
     // Badges
     let badgesHtml = renderFlagBadges(data.status_flags);
     if (stale) badgesHtml += `<span class="flag-badge warning">${icon('stale', 12)} Stale Data</span>`;
-    document.getElementById('liveStatusBadges').innerHTML = badgesHtml;
+    setHTML('liveStatusBadges', badgesHtml);
 
-    document.getElementById('lastUpdate').textContent = timeAgo(data.created_at);
+    setText('lastUpdate', timeAgo(data.created_at));
     return data;
 }
 
@@ -445,6 +477,7 @@ async function fetchHistory() {
         .range(from, to);
 
     const tbody = document.getElementById('historyBody');
+    if (!tbody) return;
 
     if (error || !data) {
         tbody.innerHTML = '<tr><td colspan="8" class="empty-text">Could not load readings</td></tr>';
@@ -481,7 +514,7 @@ async function fetchHistory() {
 }
 
 // ============================================================
-// PAGINATION CONTROLS
+// PAGINATION
 // ============================================================
 function updatePaginationControls(rowsOnPage) {
     const prevBtn = document.getElementById('prevBtn');
@@ -491,37 +524,43 @@ function updatePaginationControls(rowsOnPage) {
     const totalPages = Math.max(1, Math.ceil(readingsTotalCount / READINGS_PAGE_SIZE));
     const currentPage = Math.floor(readingsOffset / READINGS_PAGE_SIZE) + 1;
 
-    // Back button
-    prevBtn.disabled = readingsOffset === 0;
+    if (prevBtn) prevBtn.disabled = readingsOffset === 0;
 
-    // Next button — disabled if we've seen all pages
     const hasMore = (readingsOffset + rowsOnPage) < readingsTotalCount;
-    nextBtn.disabled = !hasMore;
+    if (nextBtn) nextBtn.disabled = !hasMore;
 
-    // Page info
-    if (readingsTotalCount === 0) {
-        infoEl.textContent = 'No readings';
-    } else {
-        const start = readingsOffset + 1;
-        const end = Math.min(readingsOffset + rowsOnPage, readingsTotalCount);
-        infoEl.innerHTML =
-            `Showing <strong>${start}–${end}</strong> of <strong>${readingsTotalCount}</strong>` +
-            ` &nbsp;·&nbsp; Page <strong>${currentPage}</strong> of <strong>${totalPages}</strong>`;
+    if (infoEl) {
+        if (readingsTotalCount === 0) {
+            infoEl.textContent = 'No readings';
+        } else {
+            const start = readingsOffset + 1;
+            const end = Math.min(readingsOffset + rowsOnPage, readingsTotalCount);
+            infoEl.innerHTML =
+                `Showing <strong>${start}–${end}</strong> of <strong>${readingsTotalCount}</strong>` +
+                ` &nbsp;·&nbsp; Page <strong>${currentPage}</strong> of <strong>${totalPages}</strong>`;
+        }
     }
 }
 
 function setupPagination() {
-    document.getElementById('prevBtn').addEventListener('click', () => {
-        if (readingsOffset >= READINGS_PAGE_SIZE) {
-            readingsOffset -= READINGS_PAGE_SIZE;
-            fetchHistory();
-        }
-    });
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
 
-    document.getElementById('nextBtn').addEventListener('click', () => {
-        readingsOffset += READINGS_PAGE_SIZE;
-        fetchHistory();
-    });
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (readingsOffset >= READINGS_PAGE_SIZE) {
+                readingsOffset -= READINGS_PAGE_SIZE;
+                fetchHistory();
+            }
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            readingsOffset += READINGS_PAGE_SIZE;
+            fetchHistory();
+        });
+    }
 }
 
 // ============================================================
@@ -534,6 +573,7 @@ async function fetchNodeStatus() {
         .order('node_id', { ascending: true });
 
     const container = document.getElementById('nodeStatusList');
+    if (!container) return;
 
     if (error || !data || data.length === 0) {
         container.innerHTML = '<p class="empty-text">No nodes reporting yet.</p>';
@@ -583,8 +623,7 @@ async function refresh() {
         fetchNodeStatus()
     ]);
 
-    // Only auto-refresh the readings table if the user is on page 1
-    // (so we don't kick them off their current page every 30 seconds)
+    // Only auto-refresh the readings table on page 1
     if (readingsOffset === 0) {
         await fetchHistory();
     }
