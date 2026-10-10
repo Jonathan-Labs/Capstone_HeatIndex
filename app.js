@@ -46,6 +46,7 @@ const ICONS = {
     heat_index:  `<svg class="icon" width="30" height="30" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`,
     pressure:    `<svg class="icon" width="30" height="30" viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>`,
     trend:       `<svg class="icon" width="30" height="30" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`,
+    battery:     `<svg class="icon" width="30" height="30" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><line x1="22" y1="11" x2="22" y2="13"/><line x1="6" y1="10" x2="6" y2="14"/><line x1="9" y1="10" x2="9" y2="14"/><line x1="12" y1="10" x2="12" y2="14"/></svg>`,
 
     'Sunny':         `<svg class="icon" width="52" height="52" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`,
     'Partly Cloudy': `<svg class="icon" width="52" height="52" viewBox="0 0 24 24"><path d="M12 2v2M4.93 4.93l1.41 1.41M2 12h2M20 12h2M17.66 6.34l1.41-1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg>`,
@@ -207,9 +208,9 @@ const METRIC_CONFIG = {
     pressure: { label: 'Pressure', unit: 'hPa', color: '#a855f7',
         gradient: ['rgba(168, 85, 247, 0.35)', 'rgba(168, 85, 247, 0)'],
         extract: d => d.pressure, decimals: 1 },
-    trend: { label: 'Pressure Trend', unit: '', color: '#10b981',
+    battery: { label: 'Battery', unit: 'V', color: '#10b981',
         gradient: ['rgba(16, 185, 129, 0.35)', 'rgba(16, 185, 129, 0)'],
-        extract: d => d.pressure_trend, decimals: 0, stepped: true }
+        extract: d => d.battery_mv != null ? d.battery_mv / 1000 : null, decimals: 2 }
 };
 
 let activeMetric = 'temperature';
@@ -229,7 +230,7 @@ function injectStaticIcons() {
     setHTML('tabIconHum',   icon('humidity', 14));
     setHTML('tabIconHI',    icon('heat_index', 14));
     setHTML('tabIconPres',  icon('pressure', 14));
-    setHTML('tabIconTrend', icon('trend', 14));
+    setHTML('tabIconBatt',  icon('battery', 14));
 }
 
 // ============================================================
@@ -263,8 +264,7 @@ function initChart() {
                 pointHoverRadius: 6,
                 pointHoverBackgroundColor: cfg.color,
                 pointHoverBorderColor: '#fff',
-                pointHoverBorderWidth: 2,
-                stepped: cfg.stepped ? 'middle' : false
+                pointHoverBorderWidth: 2
             }]
         },
         options: {
@@ -338,7 +338,6 @@ function updateChart() {
     trendChart.data.datasets[0].data = values;
     trendChart.data.datasets[0].borderColor = cfg.color;
     trendChart.data.datasets[0].backgroundColor = gradient;
-    trendChart.data.datasets[0].stepped = cfg.stepped ? 'middle' : false;
     trendChart.update('none');
 
     updateChartStats(values, cfg);
@@ -454,7 +453,7 @@ async function fetchLatest() {
 async function fetchChartData() {
     const { data, error } = await db
         .from('sensor_readings')
-        .select('created_at, temperature, humidity, heat_index, pressure, pressure_trend')
+        .select('created_at, temperature, humidity, heat_index, pressure, battery_mv')
         .order('created_at', { ascending: false })
         .limit(CHART_HISTORY_LIMIT);
 
@@ -480,7 +479,7 @@ async function fetchHistory() {
     if (!tbody) return;
 
     if (error || !data) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-text">Could not load readings</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-text">Could not load readings</td></tr>';
         updatePaginationControls(0);
         return;
     }
@@ -488,7 +487,7 @@ async function fetchHistory() {
     readingsTotalCount = count || 0;
 
     if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-text">No readings on this page</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-text">No readings on this page</td></tr>';
         updatePaginationControls(0);
         return;
     }
@@ -496,6 +495,7 @@ async function fetchHistory() {
     tbody.innerHTML = data.map(row => {
         const weatherColor = getWeatherColor(row.current_weather);
         const forecastColor = getForecastColor(row.forecast);
+        const batteryV = row.battery_mv != null ? (row.battery_mv / 1000).toFixed(2) + ' V' : '—';
         return `
             <tr>
                 <td>${formatShortTimePH(row.created_at)}</td>
@@ -503,6 +503,7 @@ async function fetchHistory() {
                 <td>${row.humidity?.toFixed(1) ?? '—'} %</td>
                 <td style="color:#f87171; font-weight:600;">${row.heat_index?.toFixed(1) ?? '—'} °C</td>
                 <td>${row.pressure?.toFixed(1) ?? '—'} hPa</td>
+                <td style="color:#34d399; font-weight:600;">${batteryV}</td>
                 <td style="color:${weatherColor}; font-weight:600;">${row.current_weather ?? '—'}</td>
                 <td style="color:${forecastColor}; font-weight:500;">${row.forecast ?? '—'}</td>
                 <td>${renderFlagBadges(row.status_flags)}</td>

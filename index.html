@@ -321,7 +321,7 @@
         .chart-tab[data-metric="humidity"].active     { background: rgba(59, 130, 246, 0.15);  color: #60a5fa;             border-color: rgba(59, 130, 246, 0.4); }
         .chart-tab[data-metric="heat_index"].active   { background: rgba(239, 68, 68, 0.15);   color: #f87171;             border-color: rgba(239, 68, 68, 0.4); }
         .chart-tab[data-metric="pressure"].active     { background: rgba(168, 85, 247, 0.15);  color: #c084fc;             border-color: rgba(168, 85, 247, 0.4); }
-        .chart-tab[data-metric="trend"].active        { background: rgba(16, 185, 129, 0.15);  color: #34d399;             border-color: rgba(16, 185, 129, 0.4); }
+        .chart-tab[data-metric="battery"].active      { background: rgba(16, 185, 129, 0.15);  color: #34d399;             border-color: rgba(16, 185, 129, 0.4); }
 
         .chart-container { position: relative; height: 340px; width: 100%; }
 
@@ -582,7 +582,7 @@
                 <div class="chart-tab" data-metric="humidity"><span id="tabIconHum"></span> Humidity</div>
                 <div class="chart-tab" data-metric="heat_index"><span id="tabIconHI"></span> Heat Index</div>
                 <div class="chart-tab" data-metric="pressure"><span id="tabIconPres"></span> Pressure</div>
-                <div class="chart-tab" data-metric="trend"><span id="tabIconTrend"></span> Pressure Trend</div>
+                <div class="chart-tab" data-metric="battery"><span id="tabIconBatt"></span> Battery Trend</div>
             </div>
             <div class="chart-container">
                 <canvas id="trendChart"></canvas>
@@ -610,13 +610,14 @@
                             <th>Humidity</th>
                             <th>Heat Index</th>
                             <th>Pressure</th>
+                            <th>Battery</th>
                             <th>Now</th>
                             <th>Forecast</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody id="historyBody">
-                        <tr><td colspan="8" class="empty-text">Loading...</td></tr>
+                        <tr><td colspan="9" class="empty-text">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
